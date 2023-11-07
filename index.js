@@ -102,18 +102,12 @@ async function run() {
     });
 
 
-    //   app.get('/subform', async (req, res) => {
-    //     console.log(req.query.email);
-    //     let query = {};
-    //     if (req.query?.email) {
-    //         query = { email: req.query.email }
-    //     }
-    //     // const cursor = bookingCollection.find(query);
-    //     // const result = await cursor.toArray();
+      // Get all submissions
+      app.get("/submission", async (req, res) => {
+        const result = await subCollection.find().toArray(); // Change findOne() to find()
+        res.send(result);
+      });
 
-    //     const result = await subCollection.find(query).toArray();
-    //     res.send(result);
-    // })
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
