@@ -1,7 +1,8 @@
 const express = require("express");
 const cors = require("cors");
-const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb"); // Import ObjectId
-require('dotenv').config()
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+require('dotenv').config();
+
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -22,55 +23,64 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    // Connect the client to the server (optional starting in v4.7)
+    // Connect the client to the server
     await client.connect();
 
     const assignmentCollection = client.db('assignment-11').collection('assignments');
 
+    // Create a new assignment
     app.post("/assignment", async (req, res) => {
       const c_assignment = req.body;
-      console.log("Create Assignment:", c_assignment);
+      c_assignment.creator = req.query.email; // Set the creator field based on the authenticated user
       const result = await assignmentCollection.insertOne(c_assignment);
-      console.log(result);
       res.send(result);
     });
 
+    // Get all assignments
     app.get("/assignment", async (req, res) => {
       const result = await assignmentCollection.find().toArray();
       res.send(result);
     });
 
+    // Get a single assignment by ID
     app.get("/assignment/:id", async (req, res) => {
       const id = req.params.id;
-      const query = {
-        _id: new ObjectId(id)
-      };
+      let query = {};
+      if (req.query?.email) {
+        query = { email: req.query.email };
+      }
       const result = await assignmentCollection.findOne(query);
-      console.log(result);
       res.send(result);
     });
 
+    // Update an assignment by ID
     app.put("/assignment/:id", async (req, res) => {
       const id = req.params.id;
-      const updatedAssignment = req.body; // Use updatedAssignment consistently
-      console.log("id", id, updatedAssignment);
+      const updatedAssignment = req.body;
       const filter = { _id: new ObjectId(id) };
       const options = { upsert: true };
       const assignment = {
         $set: {
-          title: updatedAssignment.title, 
-          assignmentLevel: updatedAssignment.assignmentLevel, 
-          marks: updatedAssignment.marks, 
-          dueDate: updatedAssignment.dueDate, // Corrected field name
-          description: updatedAssignment.description, 
-          product_img: updatedAssignment.product_img // Use the correct field name
+          title: updatedAssignment.title,
+          assignmentLevel: updatedAssignment.assignmentLevel,
+          marks: updatedAssignment.marks,
+          dueDate: updatedAssignment.dueDate,
+          description: updatedAssignment.description,
+          product_img: updatedAssignment.product_img
         },
       };
-      const result = await assignmentCollection.updateOne(
-        filter,
-        assignment,
-        options
-      );
+      const result = await assignmentCollection.updateOne(filter, assignment, options);
+      res.send(result);
+    });
+
+    // Delete an assignment by ID
+    app.delete("/assignment/:id", async (req, res) => {
+      const id = req.params.id;
+      console.log("delete", id);
+      const query = {
+        _id: new ObjectId(id),
+      };
+      const result = await assignmentCollection.deleteOne(query);
       res.send(result);
     });
 
@@ -78,16 +88,19 @@ async function run() {
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
-    // Ensures that the client will close when you finish/error
+    // Close the client when you finish or encounter an error
     // await client.close();
   }
 }
+
 run().catch(console.error);
 
+// Root route
 app.get("/", (req, res) => {
   res.send("Assignment-11 is running...");
 });
 
+// Start the server
 app.listen(port, () => {
   console.log(`Simple Assignment-11 is Running on port ${port}`);
 });
