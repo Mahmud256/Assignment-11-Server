@@ -33,6 +33,7 @@ async function run() {
       const c_assignment = req.body;
       c_assignment.creator = req.query.email; // Set the creator field based on the authenticated user
       const result = await assignmentCollection.insertOne(c_assignment);
+      console.log(result);
       res.send(result);
     });
 
@@ -45,10 +46,13 @@ async function run() {
     // Get a single assignment by ID
     app.get("/assignment/:id", async (req, res) => {
       const id = req.params.id;
-      let query = {};
-      if (req.query?.email) {
-        query = { email: req.query.email };
-      }
+      // let query = {};
+      // if (req.query?.email) {
+      //   query = { email: req.query.email };
+      // }
+      const query = {
+        _id: new ObjectId(id),
+      };
       const result = await assignmentCollection.findOne(query);
       res.send(result);
     });
@@ -57,9 +61,10 @@ async function run() {
     app.put("/assignment/:id", async (req, res) => {
       const id = req.params.id;
       const updatedAssignment = req.body;
+      console.log("id", id, updatedAssignment);
       const filter = { _id: new ObjectId(id) };
       const options = { upsert: true };
-      const assignment = {
+      const assignments = {
         $set: {
           title: updatedAssignment.title,
           assignmentLevel: updatedAssignment.assignmentLevel,
@@ -69,7 +74,7 @@ async function run() {
           product_img: updatedAssignment.product_img
         },
       };
-      const result = await assignmentCollection.updateOne(filter, assignment, options);
+      const result = await assignmentCollection.updateOne(filter, assignments, options);
       res.send(result);
     });
 
@@ -83,6 +88,32 @@ async function run() {
       const result = await assignmentCollection.deleteOne(query);
       res.send(result);
     });
+
+    // Submission
+    const subCollection = client.db('assignment-11').collection('submissions');
+
+    // Create a new assignment
+    app.post("/submission", async (req, res) => {
+      const subForm = req.body;
+      subForm.submitted_by = req.query.email; // Set the creator field based on the authenticated user
+      const result = await subCollection.insertOne(subForm);
+      console.log(result);
+      res.send(result);
+    });
+
+
+    //   app.get('/subform', async (req, res) => {
+    //     console.log(req.query.email);
+    //     let query = {};
+    //     if (req.query?.email) {
+    //         query = { email: req.query.email }
+    //     }
+    //     // const cursor = bookingCollection.find(query);
+    //     // const result = await cursor.toArray();
+
+    //     const result = await subCollection.find(query).toArray();
+    //     res.send(result);
+    // })
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
