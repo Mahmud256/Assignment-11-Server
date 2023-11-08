@@ -1,5 +1,7 @@
 const express = require("express");
 const cors = require("cors");
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser');
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require('dotenv').config();
 
@@ -7,8 +9,14 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:5173'
+  ],
+  credentials: true
+}));
 app.use(express.json());
+app.use(cookieParser());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.5cknjnc.mongodb.net/?retryWrites=true&w=majority`;
 
@@ -20,6 +28,28 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   }
 });
+
+// middleware
+const logger = (req, res, next) => {
+  console.log(req.method, req.url);
+  next();
+}
+
+const verifyToken = (req, res, next) => {
+  const token = req?.cookies?.token;
+  //console.log('token in the middle ware',token);
+  if(!token){
+    return res.status(401).send({message: 'unauthorizes access'})
+  }
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+    if(err){
+      return res.status(401).send({message: 'unauthorized access'})
+    }
+    req.user = decoded;
+    next();
+  })
+  //next();
+}
 
 async function run() {
   try {
@@ -37,6 +67,29 @@ async function run() {
       res.send(result);
     });
 
+    //auth related api
+    app.post('/jwt', async (req, res) => {
+      const user = req.body;
+      console.log('user for token', req.user);
+      // if(req.user.email !== req.query.email){
+      //   return res.status(403).send({message: 'forbidden access'})
+      // }
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
+      res.cookie('token', token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none'
+      })
+        .send({ success: true })
+    })
+
+    app.post('/logout', async (req, res) => {
+      const user = req.body;
+      console.log("Logout", user);
+      res.clearCookie('token', { maxAge: 0 })
+        .send({ success: true })
+    })
+
     // Get all assignments
     app.get("/assignment", async (req, res) => {
       const result = await assignmentCollection.find().toArray();
@@ -46,10 +99,6 @@ async function run() {
     // Get a single assignment by ID
     app.get("/assignment/:id", async (req, res) => {
       const id = req.params.id;
-      // let query = {};
-      // if (req.query?.email) {
-      //   query = { email: req.query.email };
-      // }
       const query = {
         _id: new ObjectId(id),
       };
@@ -102,11 +151,11 @@ async function run() {
     });
 
 
-      // Get all submissions
-      app.get("/submission", async (req, res) => {
-        const result = await subCollection.find().toArray(); // Change findOne() to find()
-        res.send(result);
-      });
+    // Get all submissions
+    app.get("/submission", async (req, res) => {
+      const result = await subCollection.find().toArray(); // Change findOne() to find()
+      res.send(result);
+    });
 
 
     // Send a ping to confirm a successful connection
